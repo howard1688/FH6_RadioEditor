@@ -192,6 +192,7 @@ FH6_RadioEditor/
 
 - FMOD Bank Tools：本專案使用它來處理 bank 解包與重建，原說明見 [fmod tool/README.md](fmod%20tool/README.md)
 - `ffmpeg.exe`：用於音訊轉 WAV 與音量調整
+- Chat GPT Plus
 
 ## License
 
