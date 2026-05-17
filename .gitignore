@@ -1,0 +1,24 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+build/
+dist/
+
+releases/
+*.zip
+
+.pytest_cache/
+.mypy_cache/
+
+backup/
+music/
+
+ffmpeg.exe
+
+fmod tool/build/
+fmod tool/fsb/
+fmod tool/fsbcache/
+fmod tool/wav/
+fmod tool/bank/
