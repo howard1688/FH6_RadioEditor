@@ -47,7 +47,6 @@ This project is built around a practical workflow:
 ```text
 FH6_RadioEditor/
 |- radio_editor.py
-|- ffmpeg.exe
 |- backup/
 |- music/
 |  |- converted_wav/
@@ -65,7 +64,7 @@ FH6_RadioEditor/
 - Windows
 - Python 3.12 recommended for running `radio_editor.py`
 - A valid `ForzaHorizon6` installation
-- These bundled files kept in place:
+- For full functionality, provide these files alongside the app:
   - `ffmpeg.exe`
   - `fmod tool/Fmod_Bank_Tools.exe`
 
@@ -146,15 +145,27 @@ The tool also removes:
 
 If you use the packaged `exe` release, keep the whole folder together instead of using only `radio_editor.exe`.
 
-The release package should include:
+The lightweight release package should include:
 
 - `radio_editor.exe`
 - `_internal/`
 
-At runtime, the app:
+Users should also place these next to the `exe`:
+
+- `ffmpeg.exe`
+- `fmod tool/`
+
+At runtime, the app first looks next to the `exe` for:
+
+- `ffmpeg.exe`
+- `fmod tool/`
+
+If they are not there, it falls back to `_internal/`.
+
+The app also:
 
 - creates `backup/` and `music/` next to the `exe`
-- loads bundled `ffmpeg.exe` and `fmod tool` from `_internal/`
+- keeps `backup/` and `music/` as user data folders
 
 ## Notes
 

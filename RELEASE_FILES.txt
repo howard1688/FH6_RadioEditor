@@ -1,0 +1,19 @@
+FH6 Radio Editor lightweight release
+
+Required contents in the same folder as radio_editor.exe:
+
+1. radio_editor.exe
+2. _internal/
+3. ffmpeg.exe
+4. fmod tool/
+
+The app will create these folders automatically on first run:
+
+- backup/
+- music/
+
+Notes:
+
+- Do not use only radio_editor.exe by itself.
+- Place ffmpeg.exe next to the exe.
+- Place the whole fmod tool folder next to the exe.

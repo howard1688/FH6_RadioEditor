@@ -73,7 +73,6 @@ flowchart TD
 ```text
 FH6_RadioEditor/
 |- radio_editor.py
-|- ffmpeg.exe
 |- backup/
 |- music/
 |  |- converted_wav/
@@ -91,7 +90,7 @@ FH6_RadioEditor/
 - Windows
 - Python 3.12（直接執行 `radio_editor.py` 時建議）
 - 已安裝 `ForzaHorizon6`
-- 專案內需保留：
+- 若要使用完整功能，請另外準備：
   - `ffmpeg.exe`
   - `fmod tool/Fmod_Bank_Tools.exe`
 
@@ -171,15 +170,27 @@ FH6_RadioEditor/
 
 如果你使用 `exe` 發布版，請整個資料夾一起使用，不要只單獨拿 `radio_editor.exe`。
 
-發布包內需要包含：
+輕量發布包內需要包含：
 
 - `radio_editor.exe`
 - `_internal/`
 
-程式會：
+另外請使用者自行放入：
+
+- `ffmpeg.exe`
+- `fmod tool/`
+
+程式會優先從 `exe` 同層讀取：
+
+- `ffmpeg.exe`
+- `fmod tool/`
+
+如果同層沒有，才會回退去找 `_internal/`。
+
+也就是說：
 
 - 在 `exe` 同層建立 `backup/`、`music/`
-- 從 `_internal/` 讀取內建的 `ffmpeg.exe` 與 `fmod tool`
+- `backup/`、`music/` 仍然是使用者資料區
 
 ## 注意事項
 

@@ -5,8 +5,6 @@ PYTHON_ROOT = r'C:\Users\howar\AppData\Local\Programs\Python\Python312'
 datas = [
     (rf'{PYTHON_ROOT}\tcl\tcl8.6', '_tcl_data'),
     (rf'{PYTHON_ROOT}\tcl\tk8.6', '_tk_data'),
-    ('fmod tool', 'fmod tool'),
-    ('ffmpeg.exe', '.'),
 ]
 
 binaries = [

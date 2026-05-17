@@ -20,7 +20,7 @@ def get_app_dir() -> Path:
 
 
 APP_DIR = get_app_dir()
-RESOURCE_DIR = APP_DIR / "_internal" if (APP_DIR / "_internal").is_dir() else APP_DIR
+INTERNAL_DIR = APP_DIR / "_internal"
 SCRIPT_DIR = APP_DIR
 BACKUP_DIR = APP_DIR / "backup"
 MUSIC_DIR = APP_DIR / "music"
@@ -28,13 +28,13 @@ DEFAULT_DIR = BACKUP_DIR if BACKUP_DIR.is_dir() else APP_DIR
 DEFAULT_GAME_ROOT = Path(r"D:\SteamLibrary\steamapps\common\ForzaHorizon6")
 RADIO_INFO_PATTERN = "RadioInfo_*.xml"
 BANK_PATTERN = "R*_Tracks_CU1.assets.bank"
-FMOD_TOOL_DIR = RESOURCE_DIR / "fmod tool"
+FMOD_TOOL_DIR = APP_DIR / "fmod tool" if (APP_DIR / "fmod tool").is_dir() else INTERNAL_DIR / "fmod tool"
 FMOD_TOOL_EXE = FMOD_TOOL_DIR / "Fmod_Bank_Tools.exe"
 FMOD_CONFIG_PATH = FMOD_TOOL_DIR / "config.ini"
 FMOD_BANK_DIR = FMOD_TOOL_DIR / "bank"
 FMOD_BUILD_DIR = FMOD_TOOL_DIR / "build"
 DEFAULT_REPLACEMENT_TXT = FMOD_TOOL_DIR / "wav" / "R2_Tracks_CU1.assets[0]" / "R2_Tracks_CU1.assets[0].txt"
-FFMPEG_EXE = RESOURCE_DIR / "ffmpeg.exe"
+FFMPEG_EXE = APP_DIR / "ffmpeg.exe" if (APP_DIR / "ffmpeg.exe").is_file() else INTERNAL_DIR / "ffmpeg.exe"
 MUSIC_CONVERT_DIR = MUSIC_DIR / "converted_wav"
 MUSIC_REPLACEMENT_TXT = MUSIC_DIR / "imported_replacements.txt"
 DISPLAY_DIVISOR = 48000
