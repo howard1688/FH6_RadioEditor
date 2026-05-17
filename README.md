@@ -2,21 +2,14 @@
 
 [中文](README.md) | [English](README.en.md)
 
-`FH6 Radio Editor` 是一個給 `ForzaHorizon6` 使用的 Windows GUI 工具，主要用來編輯 `RadioInfo_*.xml`，並協助你完成 FMOD bank 的替換流程。
+`FH6 Radio Editor` 是一個給 `ForzaHorizon6` 使用的 Windows GUI 工具，主要用來編輯 `RadioInfo_*.xml`，並協助處理 FMOD bank 的替換流程。
 
-這個專案不是純理論型工具，而是照實際改歌流程去設計的：
-
-- 備份原始 XML 與 `.bank`
-- 編輯歌曲顯示名稱、歌手與播放標記
-- 解包指定 bank
-- 把 `music/` 裡的音樂降 `13dB` 並轉成 WAV
-- 配合 FMOD Bank Tools 手動替換與重建
-- 把重建好的 `.bank` 推回遊戲資料夾
+這個專案的設計目標很實際：把 XML 編輯、bank 準備、歌曲轉檔、替換清單、還原與推送流程集中到同一個工具裡。
 
 ## 功能特色
 
 - 編輯 `RadioInfo_*.xml`
-- 啟動時自動建立 `backup/`、`music/`
+- 自動建立 `backup/`、`music/`
 - 自動備份遊戲原始 XML
 - 電台清單 / 歌曲清單瀏覽
 - 可編輯欄位：
@@ -34,32 +27,48 @@
 - 依目前電台自動提示建議 bank
 - 準備選取的 bank 到 `backup/` 與 `fmod tool/bank/`
 - 開啟 FMOD Bank Tools 進行解包
-- 解包完成並關閉工具後，自動讀取對應 `*.txt` 替換清單
-- 將 `music/` 裡的音樂降 `13dB` 並轉成 WAV
+- 解包完成後自動讀取對應 `*.txt` 替換名稱清單
+- 將 `music/` 內音樂降低 `13dB` 並轉成 WAV
 - 建立待替換歌曲清單
 - 還原 XML
 - 還原選取的 bank
-- 將 `fmod tool/build/` 內重建完成的 `.bank` 推回遊戲
+- 將 `fmod tool/build/` 內重建完成的 `.bank` 推回遊戲資料夾
 - 繁中 / 英文介面切換
 
-## 專案畫面重點
+## 流程圖
 
-工具介面分成三塊：
+```mermaid
+flowchart TD
+    A[啟動 FH6 Radio Editor] --> B[選擇 ForzaHorizon6 路徑]
+    B --> C[備份 RadioInfo XML 與掃描 bank]
+    C --> D[選擇 XML]
+    D --> E[選擇電台與歌曲]
 
-- 左側：電台與 bank 區塊
-- 中間：目前電台的歌曲列表
-- 右側：歌曲資訊、替換名稱清單、轉檔與刪除操作
+    E --> F[編輯 DisplayName Artist 與播放標記]
+    F --> G[Save XML]
 
-整體流程是為了讓你可以在同一個工具裡完成：
+    E --> H[勾選要處理的 bank]
+    H --> I[Prepare Selected Banks]
+    I --> J[Extract Selected Banks]
+    J --> K[在 FMOD Bank Tools 內按 Extract]
+    K --> L[關閉 FMOD Bank Tools]
+    L --> M[自動讀取解包後的 txt 清單]
 
-1. 選遊戲
-2. 備份 XML / bank
-3. 改 XML
-4. 解包 bank
-5. 準備替換音樂
-6. 推送重建結果
+    M --> N[把歌曲放進 music 資料夾]
+    N --> O[Convert Music]
+    O --> P[輸出 converted_wav 與 imported_replacements.txt]
+    P --> Q[手動覆蓋 fmod tool/wav 內對應 WAV]
+    Q --> R[在 FMOD Bank Tools 內按 Rebuild]
+    R --> S[關閉 FMOD Bank Tools]
+    S --> T[勾選 I finished manual song replacement]
+    T --> U[Push Built Banks]
+    U --> V[重建後的 bank 覆蓋回遊戲]
 
-## 資料夾結構
+    V --> W[進遊戲確認歌曲對應]
+    W --> X[回來調整 XML 顯示名稱與歌手]
+```
+
+## 專案結構
 
 ```text
 FH6_RadioEditor/
@@ -103,24 +112,23 @@ FH6_RadioEditor/
 
 ## FMOD Bank 工作流程
 
-這個工具目前採用的是「半手動」bank 工作流，這樣穩定性比較高。
+這個工具目前採用半手動 bank 工作流，穩定性比較高。
 
 1. 選擇遊戲路徑
 2. 選擇 XML 與電台
 3. 勾選要處理的 bank
 4. 按 `Prepare Selected Banks`
 5. 按 `Extract Selected Banks`
-6. FMOD Bank Tools 開啟
-7. 在 FMOD Bank Tools 裡按 `Extract`
-8. 關閉 FMOD Bank Tools
-9. 主程式會自動讀取解包後的 `*.txt`
-10. 把你的音樂放進 `music/`
-11. 按 `Convert Music`
-12. 到 `fmod tool/wav/...` 手動覆蓋對應 WAV
-13. 在 FMOD Bank Tools 裡執行 `Rebuild`
-14. 關閉 FMOD Bank Tools
-15. 勾選 `I finished manual song replacement`
-16. 按 `Push Built Banks`
+6. 在 FMOD Bank Tools 內按 `Extract`
+7. 關閉 FMOD Bank Tools
+8. 主程式自動讀取解包後的 `*.txt`
+9. 把你的音樂放進 `music/`
+10. 按 `Convert Music`
+11. 到 `fmod tool/wav/...` 手動覆蓋對應 WAV
+12. 在 FMOD Bank Tools 內執行 `Rebuild`
+13. 關閉 FMOD Bank Tools
+14. 勾選 `I finished manual song replacement`
+15. 按 `Push Built Banks`
 
 ## 替換名稱清單
 
@@ -187,5 +195,4 @@ FH6_RadioEditor/
 
 ## License
 
-目前這個 repository 還沒有附上正式授權檔。  
-如果你要公開發佈，建議下一步補上 `LICENSE`。
+本專案採用 [MIT License](LICENSE)。
