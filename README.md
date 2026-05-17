@@ -39,8 +39,8 @@
 
 ```mermaid
 flowchart TD
-    A[啟動 FH6 Radio Editor] --> B[選擇 ForzaHorizon6 路徑]
-    B --> C[備份 RadioInfo XML 與掃描 bank]
+    A[啟動 FH6 Radio Editor] --> B[選擇遊戲路徑]
+    B --> C[備份 XML 與掃描 bank]
     C --> D[選擇 XML]
     D --> E[選擇電台與歌曲]
 
@@ -55,17 +55,17 @@ flowchart TD
     L --> M[自動讀取解包後的 txt 清單]
 
     M --> N[把歌曲放進 music 資料夾]
-    N --> O[Convert Music]
+    N --> O[轉換 music 為 WAV]
     O --> P[輸出 converted_wav 與 imported_replacements.txt]
-    P --> Q[手動覆蓋 fmod tool/wav 內對應 WAV]
+    P --> Q[手動替換解包 WAV]
     Q --> R[在 FMOD Bank Tools 內按 Rebuild]
     R --> S[關閉 FMOD Bank Tools]
     S --> T[勾選 I finished manual song replacement]
     T --> U[Push Built Banks]
-    U --> V[重建後的 bank 覆蓋回遊戲]
+    U --> V[推送重建 bank]
 
     V --> W[進遊戲確認歌曲對應]
-    W --> X[回來調整 XML 顯示名稱與歌手]
+    W --> X[調整 XML 顯示名稱與歌手]
 ```
 
 ## 專案結構
