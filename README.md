@@ -2,13 +2,12 @@
 
 [中文](README.md) | [English](README.en.md)
 
-`FH6 Radio Editor` 是一個給 `ForzaHorizon6` 使用的 Windows GUI 工具，主要用來編輯 `RadioInfo_*.xml`，並協助處理 FMOD bank 的替換流程。
+`FH6 Radio Editor` 是一個給 `ForzaHorizon6` 使用的 Windows GUI 工具，主要用來編輯與替換遊戲自帶的電台音樂。
 
-這個專案的設計目標很實際：把 XML 編輯、bank 準備、歌曲轉檔、替換清單、還原與推送流程集中到同一個工具裡。
 
 ## 功能特色
 
-- 編輯 `RadioInfo_*.xml`
+- 編輯電台預設音樂與顯示資訊
 - 自動建立 `backup/`、`music/`
 - 自動備份遊戲原始 XML
 - 電台清單 / 歌曲清單瀏覽
