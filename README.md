@@ -25,14 +25,14 @@
 - 刪除目前電台中的單首歌曲
 - 一鍵刪除 `DisplayName` 尚未改名的歌曲
 - 依目前電台自動提示建議 bank
-- 準備選取的 bank 到 `backup/` 與 `fmod tool/bank/`
+- 準備選取的 bank 到 `backup/` 與 `Fmod_Bank_Tools/bank/`（也支援舊名 `fmod tool/`）
 - 開啟 FMOD Bank Tools 進行解包
 - 解包完成後自動讀取對應 `*.txt` 替換名稱清單
 - 將 `music/` 內音樂降低 `13dB` 並轉成 WAV
 - 建立待替換歌曲清單
 - 還原 XML
 - 還原選取的 bank
-- 將 `fmod tool/build/` 內重建完成的 `.bank` 推回遊戲資料夾
+- 將 `Fmod_Bank_Tools/build/` 內重建完成的 `.bank` 推回遊戲資料夾
 - 繁中 / 英文介面切換
 
 ## 流程圖
@@ -78,7 +78,7 @@ FH6_RadioEditor/
 |- music/
 |  |- converted_wav/
 |  \- imported_replacements.txt
-\- fmod tool/
+\- Fmod_Bank_Tools/
    |- Fmod_Bank_Tools.exe
    |- bank/
    |- wav/
@@ -93,7 +93,7 @@ FH6_RadioEditor/
 - 已安裝 `ForzaHorizon6`
 - 若要使用完整功能，請另外準備：
   - `ffmpeg.exe`
-  - `fmod tool/Fmod_Bank_Tools.exe`
+  - `Fmod_Bank_Tools/Fmod_Bank_Tools.exe`
 
 ## 快速開始
 
@@ -124,7 +124,7 @@ FH6_RadioEditor/
 8. 主程式自動讀取解包後的 `*.txt`
 9. 把你的音樂放進 `music/`
 10. 按 `Convert Music`
-11. 到 `fmod tool/wav/...` 手動覆蓋對應 WAV
+11. 到 `Fmod_Bank_Tools/wav/...` 手動覆蓋對應 WAV
 12. 在 FMOD Bank Tools 內執行 `Rebuild`
 13. 關閉 FMOD Bank Tools
 14. 勾選 `I finished manual song replacement`
@@ -179,12 +179,12 @@ FH6_RadioEditor/
 另外請使用者自行放入：
 
 - `ffmpeg.exe`
-- `fmod tool/`
+- `Fmod_Bank_Tools/`（也支援舊名 `fmod tool/`）
 
 程式會優先從 `exe` 同層讀取：
 
 - `ffmpeg.exe`
-- `fmod tool/`
+- `Fmod_Bank_Tools/`
 
 如果同層沒有，才會回退去找 `_internal/`。
 

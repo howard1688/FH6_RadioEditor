@@ -32,14 +32,14 @@ This project is built around a practical workflow:
 - delete the current song from the current station
 - delete every song whose `DisplayName` still matches the backup XML
 - suggested bank hints based on the selected station
-- prepare selected banks into `backup/` and `fmod tool/bank/`
+- prepare selected banks into `backup/` and `Fmod_Bank_Tools/bank/` (legacy `fmod tool/` is also supported)
 - launch FMOD Bank Tools for extraction
 - auto-load extracted `*.txt` replacement lists after FMOD Bank Tools closes
 - convert audio in `music/` to WAV with `-13dB` gain
 - build a replacement queue from imported songs
 - restore XML from backup
 - restore selected banks from backup
-- push rebuilt banks from `fmod tool/build/` back to the game folder
+- push rebuilt banks from `Fmod_Bank_Tools/build/` back to the game folder
 - Traditional Chinese / English UI
 
 ## Folder Layout
@@ -51,7 +51,7 @@ FH6_RadioEditor/
 |- music/
 |  |- converted_wav/
 |  \- imported_replacements.txt
-\- fmod tool/
+\- Fmod_Bank_Tools/
    |- Fmod_Bank_Tools.exe
    |- bank/
    |- wav/
@@ -66,7 +66,7 @@ FH6_RadioEditor/
 - A valid `ForzaHorizon6` installation
 - For full functionality, provide these files alongside the app:
   - `ffmpeg.exe`
-  - `fmod tool/Fmod_Bank_Tools.exe`
+  - `Fmod_Bank_Tools/Fmod_Bank_Tools.exe`
 
 ## Quick Start
 
@@ -98,7 +98,7 @@ The bank workflow is intentionally semi-manual for stability.
 9. The editor auto-loads the extracted `*.txt` list
 10. Put your source songs into `music/`
 11. Click `Convert Music`
-12. Replace the extracted WAV files manually inside `fmod tool/wav/...`
+12. Replace the extracted WAV files manually inside `Fmod_Bank_Tools/wav/...`
 13. Rebuild inside FMOD Bank Tools
 14. Close FMOD Bank Tools
 15. Check `I finished manual song replacement`
@@ -153,12 +153,12 @@ The lightweight release package should include:
 Users should also place these next to the `exe`:
 
 - `ffmpeg.exe`
-- `fmod tool/`
+- `Fmod_Bank_Tools/` (legacy `fmod tool/` is also supported)
 
 At runtime, the app first looks next to the `exe` for:
 
 - `ffmpeg.exe`
-- `fmod tool/`
+- `Fmod_Bank_Tools/`
 
 If they are not there, it falls back to `_internal/`.
 

@@ -28,7 +28,13 @@ DEFAULT_DIR = BACKUP_DIR if BACKUP_DIR.is_dir() else APP_DIR
 DEFAULT_GAME_ROOT = Path(r"D:\SteamLibrary\steamapps\common\ForzaHorizon6")
 RADIO_INFO_PATTERN = "RadioInfo_*.xml"
 BANK_PATTERN = "R*_Tracks_CU1.assets.bank"
-FMOD_TOOL_DIR = APP_DIR / "fmod tool" if (APP_DIR / "fmod tool").is_dir() else INTERNAL_DIR / "fmod tool"
+FMOD_TOOL_CANDIDATES = (
+    APP_DIR / "Fmod_Bank_Tools",
+    APP_DIR / "fmod tool",
+    INTERNAL_DIR / "Fmod_Bank_Tools",
+    INTERNAL_DIR / "fmod tool",
+)
+FMOD_TOOL_DIR = next((path for path in FMOD_TOOL_CANDIDATES if path.is_dir()), APP_DIR / "Fmod_Bank_Tools")
 FMOD_TOOL_EXE = FMOD_TOOL_DIR / "Fmod_Bank_Tools.exe"
 FMOD_CONFIG_PATH = FMOD_TOOL_DIR / "config.ini"
 FMOD_BANK_DIR = FMOD_TOOL_DIR / "bank"
