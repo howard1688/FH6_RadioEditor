@@ -36,6 +36,7 @@
 - 繁中 / 英文介面切換
 
 ## 流程圖
+<img width="1451" height="817" alt="image" src="https://github.com/user-attachments/assets/542e2932-e98e-408d-8b4c-2a00e0e79fe8" />
 
 ```mermaid
 flowchart TD
