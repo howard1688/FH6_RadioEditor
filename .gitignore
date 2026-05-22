@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.log
 
 build/
 dist/
@@ -14,11 +15,7 @@ releases/
 
 backup/
 music/
+modified_file/
 
 ffmpeg.exe
-
-fmod tool/build/
-fmod tool/fsb/
-fmod tool/fsbcache/
-fmod tool/wav/
-fmod tool/bank/
+fmod tool/
