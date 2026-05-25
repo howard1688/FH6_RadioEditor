@@ -4,19 +4,26 @@
 
 `FH6 Radio Editor` 是一個給 `ForzaHorizon6` 使用的 Windows GUI 工具，用來編輯 `RadioInfo_*.xml`，並協助處理 FMOD bank 的替換流程。
 
-這個工具把原本分散的幾件事整合在一起：
+它把幾件原本分散的工作整合在一起：
 
-- 從遊戲資料夾匯入 XML 與 bank
-- 編輯歌曲名稱、Artist、長度與 loop 相關欄位
-- 把 `music/` 內的音樂轉成 WAV
-- 自動更新 `music/imported_replacements.txt`
-- 配合 FMOD Bank Tools 做 Extract / Rebuild
-- 在遊戲更新前，額外備份你目前修改過的 XML 與 bank
+- 匯入遊戲內的 `RadioInfo_*.xml`
+- 準備、解包、重建 FMOD bank
+- 將 `music/` 內的歌曲批次轉成 WAV
+- 依序把轉好的 WAV 套到解包後的 sound 檔名
+- 在遊戲內確認歌曲對應後，再回來修改 XML 顯示名稱、Artist、長度與 loop
+- 額外備份目前修改過的 XML 與 bank，避免遊戲更新覆蓋
+
+## 介面預覽
+
+目前 README 已預留介面預覽區塊。這次變更包含最右側獨立的 `待辦事項` 欄，方便新手照步驟操作。
 
 ## 主要功能
 
 - 掃描並載入遊戲中的 `RadioInfo_*.xml`
-- 啟動時自動建立 `backup/`、`music/`、`modified_file/`
+- 啟動時自動建立：
+  - `backup/`
+  - `music/`
+  - `modified_file/`
 - 編輯歌曲欄位：
   - `DisplayName`
   - `Artist`
@@ -28,20 +35,20 @@
   - `PostRaceLoopStart`
   - `PostRaceLoopEnd`
 - 依音檔自動帶入建議 loop
-- 播放一般預覽與 loop 預覽
+- 一般播放與 loop 播放預覽
 - `Music 轉 WAV`
   - 將 `music/` 內支援格式轉成 `music/converted_wav/*.wav`
   - 自動產生 `music/imported_replacements.txt`
-  - 轉換完成後再從 `imported_replacements.txt` 重新載入替換清單
-- 準備選取 bank 到 `fmod tool/bank/`
-- 開啟 FMOD Bank Tools 做 Extract
-- 讀取 Extract 產生的 `*.txt` 清單
-- 將重建完成的 bank 推回遊戲資料夾
-- 還原 XML 與 bank 備份
+- `一鍵重新命名 WAV`
+  - 依 `imported_replacements.txt` 的順序
+  - 將轉好的 WAV 複製到 FMOD 解包資料夾
+  - 套用原本的 sound 檔名
+- 準備、解包、重建、推送 bank
 - `備份目前修改檔`
   - 將目前選取的 XML
   - 加上目前勾選的 `.bank`
-  - 直接備份到 `modified_file/`
+  - 複製到 `modified_file/`
+- 最右側獨立 `待辦事項` 欄
 
 ## 使用需求
 
@@ -90,46 +97,37 @@ radio_editor/
 
 - 發佈包本身只包含 `radio_editor.exe` 和 `_internal/`
 - `ffmpeg.exe` 與 `fmod tool/` 需要另外下載，並放在 `radio_editor.exe` 同層
-- 程式啟動後會自動建立 `backup/`、`music/`、`modified_file/`
+- 程式第一次啟動時會自動建立 `backup/`、`music/`、`modified_file/`
 
-## 基本使用流程
-
-1. 啟動 `radio_editor.py` 或 `radio_editor.exe`
-2. 按 `選擇遊戲路徑`
-3. 選擇 `ForzaHorizon6` 根目錄
-4. 從上方下拉選單選擇要編輯的 `RadioInfo_*.xml`
-5. 選擇歌曲並修改欄位
-6. 按 `套用到歌曲`
-7. 按 `儲存 XML`
-
-## Music 轉 WAV 流程
-
-如果你要從自己的音樂建立替換清單：
-
-1. 把音樂放進 `music/`
-2. 按 `Music 轉 WAV`
-3. 程式會自動：
-   - 將支援的音訊檔降低 `13dB`
-   - 輸出到 `music/converted_wav/*.wav`
-   - 產生 `music/imported_replacements.txt`
-   - 再從 `imported_replacements.txt` 重新載入替換清單
-
-## FMOD Bank 流程
+## 基本流程
 
 1. 選擇遊戲路徑
-2. 選擇要編輯的 XML
-3. 勾選要處理的 bank
-4. 按 `準備選取 Bank`
-5. 按 `解包選取 Bank`
-6. 在 FMOD Bank Tools 內執行 `Extract`
-7. 關閉 FMOD Bank Tools
-8. 程式會自動讀取對應 `*.txt`
-9. 準備好 `music/` 內的替換歌曲
-10. 按 `Music 轉 WAV`
-11. 手動把轉出的 WAV 套進 FMOD 工具流程
-12. 在 FMOD Bank Tools 內執行 `Rebuild`
-13. 勾選 `我已手動替換完歌曲`
-14. 按 `推送重建好的 Bank`
+2. 先選擇要編輯的 XML
+3. 選擇要處理的電台
+4. 勾選要處理的 bank
+5. 按 `準備選取 Bank`
+6. 按 `解包選取 Bank`，在 FMOD Bank Tools 內執行 `Extract`
+7. 把要替換的歌曲放進 `music/`
+8. 按 `Music 轉 WAV`
+9. 按 `一鍵重新命名 WAV`
+10. 在 FMOD Bank Tools 內執行 `Rebuild`
+11. 勾選 `我已手動替換完歌曲`
+12. 按 `推送重建好的 Bank`
+13. 打開遊戲試聽，確認每首新歌對應到哪個原本歌曲
+14. 回到編輯器選擇電台與歌曲
+15. 從右側替換清單填入 `DisplayName` / `Artist` / `Length`
+16. 需要的話調整 loop，然後按 `套用到歌曲`
+17. 按 `儲存 XML`
+18. 按 `備份目前修改檔`
+
+## Music 轉 WAV
+
+把歌曲放進 `music/` 後按 `Music 轉 WAV`，程式會：
+
+- 將支援的音訊檔降低 `13dB`
+- 輸出到 `music/converted_wav/*.wav`
+- 產生 `music/imported_replacements.txt`
+- 讓後續 `一鍵重新命名 WAV` 依這份清單順序處理
 
 ## 備份說明
 
@@ -141,7 +139,7 @@ radio_editor/
 
 - `modified_file/`
   - 保存你目前已修改的 XML 與 bank
-  - 建議在遊戲更新前按一次 `備份目前修改檔`
+  - 適合在遊戲更新前先按一次 `備份目前修改檔`
   - 避免更新把你之前修改過的內容覆蓋掉
 
 ## 打包

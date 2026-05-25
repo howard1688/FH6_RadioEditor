@@ -3,6 +3,7 @@
 import re
 import shutil
 import configparser
+import ctypes
 import importlib.util
 import subprocess
 import sys
@@ -13,7 +14,7 @@ import wave
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, font as tkfont, messagebox, ttk
 
 try:
     import winsound
@@ -74,6 +75,20 @@ def ensure_runtime_dirs() -> None:
     for folder in (BACKUP_DIR, MODIFIED_DIR, MUSIC_DIR):
         folder.mkdir(parents=True, exist_ok=True)
 
+
+def enable_windows_dpi_awareness() -> None:
+    if sys.platform != "win32":
+        return
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        return
+    except (AttributeError, OSError):
+        pass
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except (AttributeError, OSError):
+        pass
+
 TEXT = {
     "zh": {},
     "en": {
@@ -86,6 +101,7 @@ TEXT = {
         "backup_modified": "Backup Current Mod",
         "import": "Import from Game",
         "load_replacements": "Load Replacements",
+        "rename_wavs": "Rename WAVs",
         "deploy": "Deploy",
         "language": "ZH",
         "open_tip": "Select the ForzaHorizon6 root folder; all RadioInfo_*.xml files are backed up and available banks are scanned.",
@@ -96,6 +112,7 @@ TEXT = {
         "backup_modified_tip": "Copy the currently selected XML and checked bank files from the game folder into modified_file.",
         "import_tip": "Select the ForzaHorizon6 root folder again and refresh the local backup.",
         "load_replacements_tip": "Load replacement wav names from a txt file or a folder containing wav files.",
+        "rename_wavs_tip": "Copy the converted wav files into the extracted FMOD wav folders using the original sound file names.",
         "deploy_tip": "Save the current XML and copy files from fmod tool/build into the game's FMODBanks folder.",
         "language_tip": "Switch the interface language.",
         "apply_tip": "Apply the edited fields to the selected song without saving the file yet.",
@@ -113,6 +130,7 @@ TEXT = {
         "stations": "RadioStation",
         "songs": "Songs / Entry Name",
         "song_info": "Song Info",
+        "todo": "Checklist",
         "sound_name": "Entry / SoundName",
         "replacement_files": "Replacement File Names",
         "banks": "Bank Selection",
@@ -218,22 +236,26 @@ TEXT = {
         "replacement_waiting": "Waiting for the next batch: {count}",
         "replacement_slots": "Available for this station now: {available} / {slots} slots",
         "extract_banks": "Extract Selected Banks",
-        "extract_banks_tip": "Open FMOD Bank Tools with the selected banks prepared. After you finish Extract and close the tool, matching txt lists will be loaded automatically.",
+        "extract_banks_tip": "Open FMOD Bank Tools with the selected banks prepared so you can run Extract there.",
         "extract_no_tool": "Fmod_Bank_Tools.exe was not found:\n{path}",
-        "extract_no_txt": "No extracted txt list was found for the selected bank yet. Use Extract in FMOD Bank Tools, then close it.",
-        "extract_loaded": "Loaded extracted replacement names from {count} bank txt list(s).",
+        "extract_finished": "Extract finished. Convert your music, rename the wavs, then rebuild in FMOD Bank Tools.",
         "manual_replace_done": "I finished manual song replacement",
-        "manual_replace_done_tip": "Enable rebuild only after you have manually replaced the extracted wav files with your target songs.",
+        "manual_replace_done_tip": "Enable rebuild only after you have renamed or manually replaced the extracted wav files with your target songs.",
         "rebuild_bank": "Push Built Banks",
         "rebuild_bank_tip": "After you rebuild inside FMOD Bank Tools and close it, copy the built bank files back into the game folder.",
         "rebuild_not_ready": "Please confirm manual song replacement is finished before rebuild.",
         "rebuild_no_files": "No rebuilt bank files were found for the selected bank names in:\n{path}",
         "rebuild_done": "Copied {count} rebuilt bank file(s) into {path}",
-        "extract_running": "FMOD Bank Tools is open. Use Extract there; this editor will load the txt list after the tool closes.",
+        "extract_running": "FMOD Bank Tools is open. Use Extract there, then close the tool and return here.",
         "rebuild_running": "FMOD Bank Tools is open for rebuild.",
         "restore_bank_question": "Restore the checked bank files from backup?",
         "restore_bank_missing": "No backup was found for:\n{files}",
         "restore_bank_done": "Restored {count} bank file(s) into {path}",
+        "rename_wavs_no_targets": "No extracted wav files were found yet. Run Extract in FMOD Bank Tools first.",
+        "rename_wavs_no_sources": "No converted wav files were found. Run Convert Music first.",
+        "rename_wavs_missing_source": "Missing converted wav for: {name}",
+        "rename_wavs_done": "Copied {count} converted wav file(s) into extracted bank folders.",
+        "rename_wavs_partial": "Copied {count} wav file(s). There are {sources} converted tracks and {targets} extracted slots.",
         "backup_modified_done": "Backed up {count} modified file(s) into {path}",
         "backup_modified_none": "Select a game XML or check at least one bank first.",
         "delete_unmodified_none": "No songs in this station still use the backup DisplayName.",
@@ -250,6 +272,7 @@ ZH_TEXT = {
     "restore_banks": "還原 Banks",
     "backup_modified": "備份目前修改檔",
     "load_replacements": "載入替換清單",
+    "rename_wavs": "一鍵重新命名 WAV",
     "language": "English",
     "open_tip": "選擇 ForzaHorizon6 根目錄，程式會備份 RadioInfo XML 並掃描可用的 bank。",
     "save_tip": "只把目前 XML 編輯結果寫回遊戲資料夾。",
@@ -257,6 +280,7 @@ ZH_TEXT = {
     "restore_banks_tip": "用 backup 裡對應的 bank 還原目前勾選的 bank。",
     "backup_modified_tip": "把目前選中的 XML 與勾選的 bank，直接從遊戲資料夾複製到 modified_file。",
     "load_replacements_tip": "從 txt 或 wav 資料夾載入替換檔名。",
+    "rename_wavs_tip": "把轉好的 WAV 依序複製到解包資料夾，並套用原本的 sound 檔名。",
     "language_tip": "切換介面語言。",
     "apply_tip": "把目前右側欄位套用到選中的歌曲，但尚未存檔。",
     "suggest_loop": "建議 Loop",
@@ -273,10 +297,11 @@ ZH_TEXT = {
     "stations": "電台",
     "songs": "歌曲 / Entry Name",
     "song_info": "歌曲資訊",
+    "todo": "待辦事項",
     "sound_name": "Entry / SoundName",
     "replacement_files": "替換檔名",
     "banks": "Bank 選擇",
-    "prepare_banks": "準備選取 Bank",
+    "prepare_banks": "準備 Bank",
     "prepare_banks_tip": "把勾選的 bank 複製到 backup 與 fmod tool/bank。",
     "suggested_banks": "建議 Bank：{banks}",
     "no_suggested_banks": "建議 Bank：無",
@@ -369,23 +394,27 @@ ZH_TEXT = {
     "music_convert_done": "已轉換 {count} 首到 {folder}，並更新待替換清單：\n{txt}",
     "replacement_waiting": "下一輪待處理：{count}",
     "replacement_slots": "目前電台可替換：{available} / {slots}",
-    "extract_banks": "解包選取 Bank",
-    "extract_banks_tip": "準備好選取的 bank 並開啟 FMOD Bank Tools。完成 Extract 並關閉後，會自動讀取對應 txt 清單。",
+    "extract_banks": "解包 Bank",
+    "extract_banks_tip": "準備好選取的 bank 並開啟 FMOD Bank Tools，讓你在裡面執行 Extract。",
     "extract_no_tool": "找不到 Fmod_Bank_Tools.exe：\n{path}",
-    "extract_no_txt": "找不到解包後的 txt 清單。請先在 FMOD Bank Tools 裡按 Extract，再關閉工具。",
-    "extract_loaded": "已載入 {count} 個 bank 的解包 txt 清單。",
+    "extract_finished": "Extract 已完成。接著先做 Music 轉 WAV、再按一鍵重新命名 WAV，最後回 FMOD Bank Tools Rebuild。",
     "manual_replace_done": "我已手動替換完歌曲",
-    "manual_replace_done_tip": "只有在你手動覆蓋完解包出的 wav 後，才啟用推送 bank。",
-    "rebuild_bank": "推送重建好的 Bank",
+    "manual_replace_done_tip": "只有在你完成一鍵重新命名或手動覆蓋解包出的 wav 後，才啟用推送 bank。",
+    "rebuild_bank": "推送 Bank",
     "rebuild_bank_tip": "把 fmod tool/build 裡已經重建好的 bank 複製回遊戲資料夾。",
     "rebuild_not_ready": "請先確認已完成手動替換歌曲。",
     "rebuild_no_files": "在下列資料夾找不到對應的重建 bank：\n{path}",
     "rebuild_done": "已把 {count} 個重建 bank 複製到 {path}",
-    "extract_running": "FMOD Bank Tools 已開啟。請在那邊按 Extract，關閉後本工具會自動讀取 txt 清單。",
+    "extract_running": "FMOD Bank Tools 已開啟。請在那邊按 Extract，完成後關閉工具再回來。",
     "rebuild_running": "FMOD Bank Tools 已開啟，可在那邊進行 Rebuild。",
     "restore_bank_question": "要用 backup 裡的 bank 還原目前勾選的 bank 嗎？",
     "restore_bank_missing": "以下 bank 找不到備份：\n{files}",
     "restore_bank_done": "已還原 {count} 個 bank 到 {path}",
+    "rename_wavs_no_targets": "還找不到解包後的 wav 檔。請先在 FMOD Bank Tools 裡完成 Extract。",
+    "rename_wavs_no_sources": "找不到轉好的 wav 檔。請先按 Music 轉 WAV。",
+    "rename_wavs_missing_source": "缺少對應的轉換 WAV：{name}",
+    "rename_wavs_done": "已把 {count} 個轉換 wav 複製到解包資料夾。",
+    "rename_wavs_partial": "已複製 {count} 個 wav，目前轉換歌曲有 {sources} 首，解包槽位有 {targets} 個。",
     "backup_modified_done": "已備份 {count} 個修改檔到 {path}",
     "backup_modified_none": "請先選擇目前的 XML，或至少勾選一個 bank。",
     "delete_unmodified_none": "目前電台沒有 DisplayName 與 backup 相同的歌曲。",
@@ -472,9 +501,9 @@ class Tooltip:
 class RadioEditor(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
+        self.configure_dpi_scaling()
         self.title("FH6 Radio XML Editor")
-        self.geometry("1320x920")
-        self.minsize(1120, 800)
+        self.configure_window_size()
 
         self.xml_path: Path | None = None
         self.tree: ET.ElementTree | None = None
@@ -496,6 +525,7 @@ class RadioEditor(tk.Tk):
         self.replacement_search_roots: list[Path] = []
         self.assigned_replacements: dict[str, str] = {}
         self.song_replacement_candidates: dict[str, str] = {}
+        self.todo_text: tk.Text | None = None
         self.fields: dict[str, tk.StringVar] = {}
         self.loop_field_names = ("TrackLoopStart", "TrackLoopEnd", "PostRaceLoopStart", "PostRaceLoopEnd")
         self.lang = "zh"
@@ -540,39 +570,81 @@ class RadioEditor(tk.Tk):
             self.status_var.set(self.t("copy_prompt"))
         self.start_game_path_flash()
 
+    def configure_dpi_scaling(self) -> None:
+        try:
+            pixels_per_inch = float(self.winfo_fpixels("1i"))
+        except tk.TclError:
+            return
+        scaling = max(1.0, pixels_per_inch / 72.0)
+        self.tk.call("tk", "scaling", scaling)
+
+        default_font = tkfont.nametofont("TkDefaultFont")
+        text_font = tkfont.nametofont("TkTextFont")
+        heading_font = tkfont.nametofont("TkHeadingFont")
+        menu_font = tkfont.nametofont("TkMenuFont")
+
+        for font_obj, size in (
+            (default_font, 11),
+            (text_font, 11),
+            (heading_font, 11),
+            (menu_font, 11),
+        ):
+            font_obj.configure(size=size)
+
+    def configure_window_size(self) -> None:
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        width = min(max(int(screen_width * 0.92), 1480), 1900, max(screen_width - 80, 1000))
+        height = min(max(int(screen_height * 0.90), 900), 1040, max(screen_height - 80, 720))
+        min_width = min(width, 1280)
+        min_height = min(height, 760)
+        pos_x = max((screen_width - width) // 2, 0)
+        pos_y = max((screen_height - height) // 2, 0)
+        self.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+        self.minsize(min_width, min_height)
+
     def t(self, key: str, **kwargs: object) -> str:
         value = get_text(self.lang, key)
         return value.format(**kwargs) if kwargs else value
 
     def _build_ui(self) -> None:
-        self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=1)
-        self.columnconfigure(2, weight=2)
+        self.columnconfigure(0, weight=11, uniform="main")
+        self.columnconfigure(1, weight=14, uniform="main")
+        self.columnconfigure(2, weight=22, uniform="main")
+        self.columnconfigure(3, weight=13, uniform="main")
         self.rowconfigure(1, weight=1)
 
         top = ttk.Frame(self, padding=10)
-        top.grid(row=0, column=0, columnspan=3, sticky="ew")
+        top.grid(row=0, column=0, columnspan=4, sticky="ew")
         top.columnconfigure(1, weight=1)
+        top.columnconfigure(2, weight=1)
 
         self.labels["xml"] = ttk.Label(top, text="XML")
         self.labels["xml"].grid(row=0, column=0, padx=(0, 8))
-        self.xml_combo = ttk.Combobox(top, state="readonly", width=82)
-        self.xml_combo.grid(row=0, column=1, sticky="ew")
+        self.xml_combo = ttk.Combobox(top, state="readonly", width=72)
+        self.xml_combo.grid(row=0, column=1, sticky="ew", padx=(0, 8))
         self.xml_combo.bind("<<ComboboxSelected>>", lambda _event: self.load_xml(Path(self.xml_combo.get())))
-        self.buttons["open"] = ttk.Button(top, command=self.import_game_files_from_dialog)
-        self.buttons["open"].grid(row=0, column=2, padx=6)
-        self.buttons["save"] = ttk.Button(top, command=self.save_xml)
-        self.buttons["save"].grid(row=0, column=3, padx=6)
-        self.buttons["restore_xml"] = ttk.Button(top, command=self.restore_xml_backup)
-        self.buttons["restore_xml"].grid(row=0, column=4, padx=6)
-        self.buttons["restore_banks"] = ttk.Button(top, command=self.restore_selected_banks)
-        self.buttons["restore_banks"].grid(row=0, column=5, padx=6)
-        self.buttons["backup_modified"] = ttk.Button(top, command=self.backup_selected_modified_files)
-        self.buttons["backup_modified"].grid(row=0, column=6, padx=6)
-        self.buttons["load_replacements"] = ttk.Button(top, command=self.load_replacements_dialog)
-        self.buttons["load_replacements"].grid(row=0, column=7, padx=6)
-        self.buttons["language"] = ttk.Button(top, command=self.toggle_language)
-        self.buttons["language"].grid(row=0, column=8)
+        quick_actions = ttk.Frame(top)
+        quick_actions.grid(row=0, column=2, sticky="e")
+        self.buttons["open"] = ttk.Button(quick_actions, command=self.import_game_files_from_dialog)
+        self.buttons["open"].grid(row=0, column=0, padx=(0, 6))
+        self.buttons["save"] = ttk.Button(quick_actions, command=self.save_xml)
+        self.buttons["save"].grid(row=0, column=1, padx=(0, 6))
+        self.buttons["language"] = ttk.Button(quick_actions, command=self.toggle_language)
+        self.buttons["language"].grid(row=0, column=2)
+
+        secondary_actions = ttk.Frame(top)
+        secondary_actions.grid(row=1, column=1, columnspan=2, sticky="ew", pady=(8, 0))
+        for column in range(4):
+            secondary_actions.columnconfigure(column, weight=1, uniform="top_actions")
+        self.buttons["restore_xml"] = ttk.Button(secondary_actions, command=self.restore_xml_backup)
+        self.buttons["restore_xml"].grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        self.buttons["restore_banks"] = ttk.Button(secondary_actions, command=self.restore_selected_banks)
+        self.buttons["restore_banks"].grid(row=0, column=1, sticky="ew", padx=6)
+        self.buttons["backup_modified"] = ttk.Button(secondary_actions, command=self.backup_selected_modified_files)
+        self.buttons["backup_modified"].grid(row=0, column=2, sticky="ew", padx=6)
+        self.buttons["load_replacements"] = ttk.Button(secondary_actions, command=self.load_replacements_dialog)
+        self.buttons["load_replacements"].grid(row=0, column=3, sticky="ew", padx=(6, 0))
 
         station_frame = ttk.LabelFrame(self, padding=8)
         self.frames["stations"] = station_frame
@@ -594,9 +666,9 @@ class RadioEditor(tk.Tk):
         self.suggested_banks_var = tk.StringVar(value="")
         ttk.Label(bank_frame, textvariable=self.suggested_banks_var, wraplength=320, justify="left").grid(row=1, column=0, sticky="ew", pady=(8, 0))
         self.buttons["prepare_banks"] = ttk.Button(bank_frame, command=self.prepare_selected_banks)
-        self.buttons["prepare_banks"].grid(row=2, column=0, sticky="e", pady=(8, 0))
+        self.buttons["prepare_banks"].grid(row=2, column=0, sticky="ew", pady=(8, 0))
         self.buttons["extract_banks"] = ttk.Button(bank_frame, command=self.extract_selected_banks)
-        self.buttons["extract_banks"].grid(row=3, column=0, sticky="e", pady=(8, 0))
+        self.buttons["extract_banks"].grid(row=3, column=0, sticky="ew", pady=(8, 0))
         self.manual_replace_done_check = ttk.Checkbutton(
             bank_frame,
             variable=self.manual_replace_done_var,
@@ -604,7 +676,7 @@ class RadioEditor(tk.Tk):
         )
         self.manual_replace_done_check.grid(row=4, column=0, sticky="w", pady=(8, 0))
         self.buttons["rebuild_bank"] = ttk.Button(bank_frame, command=self.rebuild_selected_banks, state="disabled")
-        self.buttons["rebuild_bank"].grid(row=5, column=0, sticky="e", pady=(8, 0))
+        self.buttons["rebuild_bank"].grid(row=5, column=0, sticky="ew", pady=(8, 0))
 
         song_frame = ttk.LabelFrame(self, padding=8)
         self.frames["songs"] = song_frame
@@ -656,19 +728,20 @@ class RadioEditor(tk.Tk):
 
         button_row = ttk.Frame(info)
         button_row.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(16, 0))
-        button_row.columnconfigure(0, weight=1)
+        for column in range(3):
+            button_row.columnconfigure(column, weight=1, uniform="song_actions")
         self.buttons["preview_loop"] = ttk.Button(button_row, command=self.toggle_loop_preview)
-        self.buttons["preview_loop"].grid(row=0, column=1, padx=6)
+        self.buttons["preview_loop"].grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 6))
         self.buttons["audio_preview"] = ttk.Button(button_row, command=self.toggle_audio_preview)
-        self.buttons["audio_preview"].grid(row=0, column=2, padx=6)
+        self.buttons["audio_preview"].grid(row=0, column=1, sticky="ew", padx=6, pady=(0, 6))
         self.buttons["suggest_loop"] = ttk.Button(button_row, command=lambda: self.suggest_loop_for_current_song(overwrite=True))
-        self.buttons["suggest_loop"].grid(row=0, column=3, padx=6)
+        self.buttons["suggest_loop"].grid(row=0, column=2, sticky="ew", padx=(6, 0), pady=(0, 6))
         self.buttons["apply"] = ttk.Button(button_row, command=self.apply_song_changes)
-        self.buttons["apply"].grid(row=0, column=4, padx=6)
+        self.buttons["apply"].grid(row=1, column=0, sticky="ew", padx=(0, 6))
         self.buttons["delete"] = ttk.Button(button_row, command=self.delete_song)
-        self.buttons["delete"].grid(row=0, column=5)
+        self.buttons["delete"].grid(row=1, column=1, sticky="ew", padx=6)
         self.buttons["delete_unmodified"] = ttk.Button(button_row, command=self.delete_unmodified_songs)
-        self.buttons["delete_unmodified"].grid(row=0, column=6, padx=(6, 0))
+        self.buttons["delete_unmodified"].grid(row=1, column=2, sticky="ew", padx=(6, 0))
 
         replacement_frame = ttk.LabelFrame(info, padding=8)
         self.frames["replacement_files"] = replacement_frame
@@ -695,15 +768,41 @@ class RadioEditor(tk.Tk):
         replacement_buttons.columnconfigure(0, weight=1)
         self.buttons["convert_music"] = ttk.Button(replacement_buttons, command=self.convert_music_folder)
         self.buttons["convert_music"].grid(row=0, column=0, sticky="w")
+        self.buttons["rename_wavs"] = ttk.Button(replacement_buttons, command=self.rename_converted_wavs_to_extracted_slots)
+        self.buttons["rename_wavs"].grid(row=0, column=1, padx=(8, 8))
         self.buttons["use_replacement"] = ttk.Button(replacement_buttons, command=self.use_selected_replacement)
-        self.buttons["use_replacement"].grid(row=0, column=1, sticky="e", padx=(8, 0))
+        self.buttons["use_replacement"].grid(row=0, column=2, sticky="e")
+
+        todo_frame = ttk.LabelFrame(self, padding=8)
+        self.frames["todo"] = todo_frame
+        todo_frame.grid(row=1, column=3, sticky="nsew", padx=(0, 10), pady=(0, 10))
+        todo_frame.columnconfigure(0, weight=1)
+        todo_frame.rowconfigure(0, weight=1)
+        self.todo_text = tk.Text(
+            todo_frame,
+            wrap="word",
+            state="disabled",
+            background="#fbfbfb",
+            relief="solid",
+            borderwidth=1,
+            padx=10,
+            pady=10,
+            spacing1=4,
+            spacing2=6,
+            spacing3=8,
+            font=("Microsoft JhengHei UI", 11),
+        )
+        self.todo_text.grid(row=0, column=0, sticky="nsew")
+        todo_scroll = ttk.Scrollbar(todo_frame, command=self.todo_text.yview)
+        todo_scroll.grid(row=0, column=1, sticky="ns")
+        self.todo_text.configure(yscrollcommand=todo_scroll.set)
         self._setup_button_tooltips()
 
         self.status_var = tk.StringVar(value="")
-        ttk.Label(self, textvariable=self.status_var, anchor="w").grid(row=2, column=0, columnspan=3, sticky="ew", padx=10, pady=(0, 8))
+        ttk.Label(self, textvariable=self.status_var, anchor="w").grid(row=2, column=0, columnspan=4, sticky="ew", padx=10, pady=(0, 8))
 
     def _setup_button_tooltips(self) -> None:
-        for key in ("open", "save", "restore_xml", "restore_banks", "backup_modified", "load_replacements", "language", "prepare_banks", "extract_banks", "rebuild_bank", "preview_loop", "audio_preview", "suggest_loop", "apply", "delete", "delete_unmodified", "use_replacement", "convert_music"):
+        for key in ("open", "save", "restore_xml", "restore_banks", "backup_modified", "load_replacements", "language", "prepare_banks", "extract_banks", "rebuild_bank", "preview_loop", "audio_preview", "suggest_loop", "apply", "delete", "delete_unmodified", "use_replacement", "convert_music", "rename_wavs"):
             self.tooltips[key] = Tooltip(self.buttons[key])
         self.tooltips["manual_replace_done"] = Tooltip(self.manual_replace_done_check)
 
@@ -722,9 +821,62 @@ class RadioEditor(tk.Tk):
     def on_timeline_field_changed(self, *_args: object) -> None:
         self.after_idle(self.update_timeline_visual)
 
+    def todo_steps(self) -> list[str]:
+        if self.lang == "zh":
+            return [
+                "1. 選擇遊戲路徑。",
+                "2. 先選擇要編輯的 XML。",
+                "3. 選擇要處理的電台。",
+                "4. 勾選要處理的 bank。",
+                "5. 按「準備選取 Bank」。",
+                "6. 按「解包選取 Bank」開啟 FMOD Bank Tools。",
+                "7. 在 FMOD Bank Tools 裡按 Extract。",
+                "8. 把要替換的歌曲放進 music 資料夾。",
+                "9. 按「Music 轉 WAV」。",
+                "10. 按「一鍵重新命名 WAV」。",
+                "11. 在 FMOD Bank Tools 裡按 Rebuild。",
+                "12. 勾選「我已手動替換完歌曲」。",
+                "13. 按「推送重建好的 Bank」。",
+                "14. 打開遊戲試聽，確認新歌對應哪個原本歌曲。",
+                "15. 回到編輯器選擇電台與歌曲。",
+                "16. 從右側替換清單填入 DisplayName / Artist / 長度。",
+                "17. 需要的話調整 loop，然後按「套用到歌曲」。",
+                "18. 按「儲存 XML」。",
+                "19. 按「備份目前修改檔」。",
+            ]
+        return [
+            "1. Select the game path.",
+            "2. Choose the XML you want to edit first.",
+            "3. Select the station you want to work on.",
+            "4. Check the bank files you want to edit.",
+            "5. Click Prepare Selected Banks.",
+            "6. Click Extract Selected Banks to open FMOD Bank Tools.",
+            "7. Run Extract inside FMOD Bank Tools.",
+            "8. Put your replacement songs into the music folder.",
+            "9. Click Convert Music.",
+            "10. Click Rename WAVs.",
+            "11. Run Rebuild inside FMOD Bank Tools.",
+            "12. Check I finished manual song replacement.",
+            "13. Click Push Built Banks.",
+            "14. Test the game and find which original song each replacement matches.",
+            "15. Return to the editor and select the station and song.",
+            "16. Fill DisplayName / Artist / Length from the replacement list.",
+            "17. Adjust loop values if needed, then click Apply to Song.",
+            "18. Click Save XML.",
+            "19. Click Backup Current Mod.",
+        ]
+
+    def update_todo_panel(self) -> None:
+        if self.todo_text is None:
+            return
+        self.todo_text.configure(state="normal")
+        self.todo_text.delete("1.0", tk.END)
+        self.todo_text.insert("1.0", "\n".join(self.todo_steps()))
+        self.todo_text.configure(state="disabled")
+
     def apply_language(self) -> None:
         self.title(self.t("title"))
-        for key in ("open", "save", "restore_xml", "restore_banks", "backup_modified", "load_replacements", "language", "prepare_banks", "extract_banks", "rebuild_bank", "preview_loop", "audio_preview", "suggest_loop", "apply", "delete", "delete_unmodified", "use_replacement", "convert_music"):
+        for key in ("open", "save", "restore_xml", "restore_banks", "backup_modified", "load_replacements", "language", "prepare_banks", "extract_banks", "rebuild_bank", "preview_loop", "audio_preview", "suggest_loop", "apply", "delete", "delete_unmodified", "use_replacement", "convert_music", "rename_wavs"):
             self.buttons[key].configure(text=self.t(key))
             self.tooltips[key].set_text(self.t(f"{key}_tip"))
         self.buttons["language"].configure(text="English" if self.lang == "zh" else "ZH")
@@ -737,6 +889,7 @@ class RadioEditor(tk.Tk):
         self.frames["song_info"].configure(text=self.t("song_info"))
         self.frames["timeline"].configure(text=self.t("timeline"))
         self.frames["replacement_files"].configure(text=self.t("replacement_files"))
+        self.frames["todo"].configure(text=self.t("todo"))
         self.labels["sound_name"].configure(text=self.t("sound_name"))
         self.labels["LengthSeconds"].configure(text=self.t("length"))
         self.labels["DisplayName"].configure(text="DisplayName")
@@ -749,6 +902,7 @@ class RadioEditor(tk.Tk):
         self.update_suggested_banks_label()
         self.update_replacement_info()
         self.update_timeline_visual()
+        self.update_todo_panel()
         if not self.status_var.get():
             self.status_var.set(self.t("ready"))
         if self.game_root is None:
@@ -847,16 +1001,14 @@ class RadioEditor(tk.Tk):
             return
 
         action = self.pending_fmod_action
-        banks = list(self.pending_fmod_banks)
         self.fmod_process = None
         self.pending_fmod_action = None
         self.pending_fmod_banks = []
         self.fmod_after_id = None
         self.set_fmod_buttons_enabled(True)
         self.update_rebuild_button_state()
-
         if action == "extract_banks":
-            self.load_extracted_replacement_texts(banks)
+            self.status_var.set(self.t("extract_finished"))
 
     def update_suggested_banks_label(self) -> None:
         if not hasattr(self, "suggested_banks_var"):
@@ -963,6 +1115,9 @@ class RadioEditor(tk.Tk):
             messagebox.showerror(self.t("fmod_bank_failed"), str(exc))
 
     def prepare_selected_banks(self) -> None:
+        if self.xml_path is None:
+            messagebox.showwarning(self.t("banks"), self.t("choose_xml"))
+            return
         selected_banks = self.selected_bank_paths()
         if not selected_banks:
             messagebox.showwarning(self.t("banks"), self.t("no_bank_selected"))
@@ -1024,31 +1179,14 @@ class RadioEditor(tk.Tk):
             config.write(config_file)
 
     @staticmethod
-    def extracted_txt_path_for_bank(bank_path: Path) -> Path:
+    def extracted_wav_dir_for_bank(bank_path: Path) -> Path:
         folder_name = f"{bank_path.stem}[0]"
-        return FMOD_TOOL_DIR / "wav" / folder_name / f"{folder_name}.txt"
-
-    def load_extracted_replacement_texts(self, banks: list[Path]) -> bool:
-        extracted_names: list[str] = []
-        found_paths = 0
-        search_roots: list[Path] = []
-        for bank in banks:
-            txt_path = self.extracted_txt_path_for_bank(bank)
-            if not txt_path.is_file():
-                continue
-            extracted_names.extend(self.read_replacement_text(txt_path))
-            found_paths += 1
-            search_roots.append(txt_path.parent)
-
-        if not extracted_names:
-            messagebox.showwarning(self.t("extract_banks"), self.t("extract_no_txt"))
-            return False
-
-        self.set_replacement_names(extracted_names, show_status=False, search_roots=search_roots)
-        self.status_var.set(self.t("extract_loaded", count=found_paths))
-        return True
+        return FMOD_TOOL_DIR / "wav" / folder_name
 
     def extract_selected_banks(self) -> None:
+        if self.xml_path is None:
+            messagebox.showwarning(self.t("extract_banks"), self.t("choose_xml"))
+            return
         selected_banks = self.selected_bank_paths()
         if not selected_banks:
             messagebox.showwarning(self.t("banks"), self.t("no_bank_selected"))
@@ -1063,6 +1201,9 @@ class RadioEditor(tk.Tk):
         self.start_fmod_tool("extract_banks", selected_banks)
 
     def rebuild_selected_banks(self) -> None:
+        if self.xml_path is None:
+            messagebox.showwarning(self.t("rebuild_bank"), self.t("choose_xml"))
+            return
         selected_banks = self.selected_bank_paths()
         if not selected_banks:
             messagebox.showwarning(self.t("banks"), self.t("no_bank_selected"))
@@ -1334,6 +1475,72 @@ class RadioEditor(tk.Tk):
             candidate = target_dir / f"{stem} ({index}).wav"
             index += 1
         return candidate
+
+    def converted_replacement_source_paths(self) -> list[Path]:
+        if DEFAULT_REPLACEMENT_TXT.is_file():
+            ordered_names = self.read_replacement_text(DEFAULT_REPLACEMENT_TXT)
+            ordered_paths: list[Path] = []
+            for name in ordered_names:
+                source_path = self.find_audio_by_stem(name, search_roots=[MUSIC_CONVERT_DIR])
+                if source_path is None:
+                    raise FileNotFoundError(self.t("rename_wavs_missing_source", name=name))
+                ordered_paths.append(source_path)
+            if ordered_paths:
+                return ordered_paths
+
+        return sorted(MUSIC_CONVERT_DIR.glob("*.wav"))
+
+    def rename_converted_wavs_to_extracted_slots(self) -> None:
+        selected_banks = self.selected_bank_paths()
+        if not selected_banks:
+            messagebox.showwarning(self.t("banks"), self.t("no_bank_selected"))
+            return
+
+        if not MUSIC_CONVERT_DIR.is_dir():
+            messagebox.showwarning(self.t("rename_wavs"), self.t("rename_wavs_no_sources"))
+            return
+
+        try:
+            source_paths = self.converted_replacement_source_paths()
+        except FileNotFoundError as exc:
+            messagebox.showwarning(self.t("rename_wavs"), str(exc))
+            return
+
+        if not source_paths:
+            messagebox.showwarning(self.t("rename_wavs"), self.t("rename_wavs_no_sources"))
+            return
+
+        target_paths: list[Path] = []
+        for bank in selected_banks:
+            extracted_dir = self.extracted_wav_dir_for_bank(bank)
+            if not extracted_dir.is_dir():
+                continue
+            target_paths.extend(sorted(path for path in extracted_dir.glob("*.wav") if path.is_file()))
+
+        if not target_paths:
+            messagebox.showwarning(self.t("rename_wavs"), self.t("rename_wavs_no_targets"))
+            return
+
+        copy_count = min(len(source_paths), len(target_paths))
+        try:
+            for source_path, target_path in zip(source_paths[:copy_count], target_paths[:copy_count]):
+                shutil.copy2(source_path, target_path)
+        except OSError as exc:
+            messagebox.showerror(self.t("rename_wavs"), str(exc))
+            return
+
+        if len(source_paths) != len(target_paths):
+            self.status_var.set(
+                self.t(
+                    "rename_wavs_partial",
+                    count=copy_count,
+                    sources=len(source_paths),
+                    targets=len(target_paths),
+                )
+            )
+            return
+
+        self.status_var.set(self.t("rename_wavs_done", count=copy_count))
 
     def convert_music_folder(self) -> None:
         if not FFMPEG_EXE.is_file():
@@ -2759,6 +2966,7 @@ class RadioEditor(tk.Tk):
 
 
 if __name__ == "__main__":
+    enable_windows_dpi_awareness()
     ensure_runtime_dirs()
     app = RadioEditor()
     app.mainloop()
