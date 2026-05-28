@@ -51,6 +51,9 @@ DEFAULT_REPLACEMENT_TXT = MUSIC_REPLACEMENT_TXT
 DISPLAY_DIVISOR = 48000
 LOOP_DIVISOR = 44100
 FLASH_BUTTON_WIDTH = 26
+MAIN_MIN_WIDTH = 1080
+MAIN_MIN_HEIGHT = 608
+MAIN_ASPECT_RATIO = 16 / 9
 LOOP_ANALYSIS_SAMPLE_RATE = 44100
 LOOP_ANALYSIS_STEP_SECONDS = 0.5
 LOOP_ANALYSIS_MIN_SECONDS = 20.0
@@ -500,10 +503,11 @@ class Tooltip:
 
 class RadioEditor(tk.Tk):
     def __init__(self) -> None:
+        ensure_runtime_dirs()
         super().__init__()
         self.configure_dpi_scaling()
         self.title("FH6 Radio XML Editor")
-        self.configure_window_size()
+        self.compact_layout = self.winfo_screenheight() <= 1080
 
         self.xml_path: Path | None = None
         self.tree: ET.ElementTree | None = None
@@ -534,6 +538,7 @@ class RadioEditor(tk.Tk):
         self.frames: dict[str, ttk.LabelFrame] = {}
         self.tooltips: dict[str, Tooltip] = {}
         self.label_tooltips: dict[str, Tooltip] = {}
+        self.entry_widgets: dict[str, ttk.Entry] = {}
         self.flash_after_id: str | None = None
         self.replacement_flash_after_id: str | None = None
         self.replacement_flash_on = False
@@ -569,6 +574,7 @@ class RadioEditor(tk.Tk):
         if self.replacement_names:
             self.status_var.set(self.t("copy_prompt"))
         self.start_game_path_flash()
+        self.configure_window_size()
 
     def configure_dpi_scaling(self) -> None:
         try:
@@ -592,36 +598,65 @@ class RadioEditor(tk.Tk):
             font_obj.configure(size=size)
 
     def configure_window_size(self) -> None:
+        self.update_idletasks()
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
-        width = min(max(int(screen_width * 0.92), 1480), 1900, max(screen_width - 80, 1000))
-        height = min(max(int(screen_height * 0.90), 900), 1040, max(screen_height - 80, 720))
-        min_width = min(width, 1280)
-        min_height = min(height, 760)
+        max_width = max(screen_width - 80, MAIN_MIN_WIDTH)
+        max_height = max(screen_height - 80, MAIN_MIN_HEIGHT)
+        required_width = max(self.winfo_reqwidth() + 24, MAIN_MIN_WIDTH)
+        required_height = max(self.winfo_reqheight() + 24, MAIN_MIN_HEIGHT)
+
+        width = max(int(screen_width * 0.90), required_width, int(round(required_height * MAIN_ASPECT_RATIO)))
+        width = min(width, 2200, max_width)
+        height = int(round(width / MAIN_ASPECT_RATIO))
+
+        if height < required_height and required_height <= max_height:
+            height = required_height
+            width = int(round(height * MAIN_ASPECT_RATIO))
+        if width > max_width:
+            width = max_width
+            height = int(round(width / MAIN_ASPECT_RATIO))
+        if height > max_height:
+            height = max_height
+            width = int(round(height * MAIN_ASPECT_RATIO))
+
+        width = max(width, MAIN_MIN_WIDTH)
+        height = max(height, MAIN_MIN_HEIGHT)
+        min_width = min(width, required_width)
+        min_height = min(height, required_height)
         pos_x = max((screen_width - width) // 2, 0)
         pos_y = max((screen_height - height) // 2, 0)
         self.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
         self.minsize(min_width, min_height)
+        self.aspect(16, 9, 16, 9)
 
     def t(self, key: str, **kwargs: object) -> str:
         value = get_text(self.lang, key)
         return value.format(**kwargs) if kwargs else value
 
     def _build_ui(self) -> None:
-        self.columnconfigure(0, weight=11, uniform="main")
-        self.columnconfigure(1, weight=14, uniform="main")
-        self.columnconfigure(2, weight=22, uniform="main")
+        outer_pad = 6 if self.compact_layout else 10
+        frame_pad = 6 if self.compact_layout else 8
+        info_pad = 8 if self.compact_layout else 12
+        self.field_pady = 2 if self.compact_layout else 4
+        section_gap = 6 if self.compact_layout else 10
+        timeline_height = 70 if self.compact_layout else 96
+        replacement_height = 4 if self.compact_layout else 8
+        waiting_height = 3 if self.compact_layout else 5
+
+        self.columnconfigure(0, weight=9, uniform="main")
+        self.columnconfigure(1, weight=12, uniform="main")
+        self.columnconfigure(2, weight=24, uniform="main")
         self.columnconfigure(3, weight=13, uniform="main")
         self.rowconfigure(1, weight=1)
 
-        top = ttk.Frame(self, padding=10)
+        top = ttk.Frame(self, padding=outer_pad)
         top.grid(row=0, column=0, columnspan=4, sticky="ew")
         top.columnconfigure(1, weight=1)
-        top.columnconfigure(2, weight=1)
 
         self.labels["xml"] = ttk.Label(top, text="XML")
         self.labels["xml"].grid(row=0, column=0, padx=(0, 8))
-        self.xml_combo = ttk.Combobox(top, state="readonly", width=72)
+        self.xml_combo = ttk.Combobox(top, state="readonly", width=45)
         self.xml_combo.grid(row=0, column=1, sticky="ew", padx=(0, 8))
         self.xml_combo.bind("<<ComboboxSelected>>", lambda _event: self.load_xml(Path(self.xml_combo.get())))
         quick_actions = ttk.Frame(top)
@@ -634,37 +669,39 @@ class RadioEditor(tk.Tk):
         self.buttons["language"].grid(row=0, column=2)
 
         secondary_actions = ttk.Frame(top)
-        secondary_actions.grid(row=1, column=1, columnspan=2, sticky="ew", pady=(8, 0))
-        for column in range(4):
+        secondary_actions.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(8, 0))
+        top_action_columns = 4 if self.compact_layout else 2
+        for column in range(top_action_columns):
             secondary_actions.columnconfigure(column, weight=1, uniform="top_actions")
         self.buttons["restore_xml"] = ttk.Button(secondary_actions, command=self.restore_xml_backup)
-        self.buttons["restore_xml"].grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        self.buttons["restore_xml"].grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 0 if self.compact_layout else 6))
         self.buttons["restore_banks"] = ttk.Button(secondary_actions, command=self.restore_selected_banks)
-        self.buttons["restore_banks"].grid(row=0, column=1, sticky="ew", padx=6)
+        self.buttons["restore_banks"].grid(row=0, column=1, sticky="ew", padx=6 if self.compact_layout else (6, 0), pady=(0, 0 if self.compact_layout else 6))
         self.buttons["backup_modified"] = ttk.Button(secondary_actions, command=self.backup_selected_modified_files)
-        self.buttons["backup_modified"].grid(row=0, column=2, sticky="ew", padx=6)
+        self.buttons["backup_modified"].grid(row=0 if self.compact_layout else 1, column=2 if self.compact_layout else 0, sticky="ew", padx=6 if self.compact_layout else (0, 6))
         self.buttons["load_replacements"] = ttk.Button(secondary_actions, command=self.load_replacements_dialog)
-        self.buttons["load_replacements"].grid(row=0, column=3, sticky="ew", padx=(6, 0))
+        self.buttons["load_replacements"].grid(row=0 if self.compact_layout else 1, column=3 if self.compact_layout else 1, sticky="ew", padx=(6, 0))
 
-        station_frame = ttk.LabelFrame(self, padding=8)
+        station_frame = ttk.LabelFrame(self, padding=frame_pad)
         self.frames["stations"] = station_frame
-        station_frame.grid(row=1, column=0, sticky="nsew", padx=(10, 5), pady=(0, 10))
+        station_frame.grid(row=1, column=0, sticky="nsew", padx=(outer_pad, 4), pady=(0, outer_pad))
         station_frame.rowconfigure(0, weight=1)
-        self.station_list = tk.Listbox(station_frame, width=36, exportselection=False)
+        self.station_list = tk.Listbox(station_frame, width=28, exportselection=False)
         self.station_list.grid(row=0, column=0, sticky="nsew")
         station_scroll = ttk.Scrollbar(station_frame, command=self.station_list.yview)
         station_scroll.grid(row=0, column=1, sticky="ns")
         self.station_list.configure(yscrollcommand=station_scroll.set)
         self.station_list.bind("<<ListboxSelect>>", self.on_station_selected)
 
-        bank_frame = ttk.LabelFrame(station_frame, padding=8)
+        bank_frame = ttk.LabelFrame(station_frame, padding=frame_pad)
         self.frames["banks"] = bank_frame
-        bank_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        bank_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(section_gap, 0))
         bank_frame.columnconfigure(0, weight=1)
         self.bank_checks_frame = ttk.Frame(bank_frame)
         self.bank_checks_frame.grid(row=0, column=0, sticky="ew")
         self.suggested_banks_var = tk.StringVar(value="")
-        ttk.Label(bank_frame, textvariable=self.suggested_banks_var, wraplength=320, justify="left").grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        self.suggested_banks_label = ttk.Label(bank_frame, textvariable=self.suggested_banks_var, wraplength=260, justify="left")
+        self.suggested_banks_label.grid(row=1, column=0, sticky="ew", pady=(8, 0))
         self.buttons["prepare_banks"] = ttk.Button(bank_frame, command=self.prepare_selected_banks)
         self.buttons["prepare_banks"].grid(row=2, column=0, sticky="ew", pady=(8, 0))
         self.buttons["extract_banks"] = ttk.Button(bank_frame, command=self.extract_selected_banks)
@@ -678,29 +715,31 @@ class RadioEditor(tk.Tk):
         self.buttons["rebuild_bank"] = ttk.Button(bank_frame, command=self.rebuild_selected_banks, state="disabled")
         self.buttons["rebuild_bank"].grid(row=5, column=0, sticky="ew", pady=(8, 0))
 
-        song_frame = ttk.LabelFrame(self, padding=8)
+        song_frame = ttk.LabelFrame(self, padding=frame_pad)
         self.frames["songs"] = song_frame
-        song_frame.grid(row=1, column=1, sticky="nsew", padx=5, pady=(0, 10))
+        song_frame.grid(row=1, column=1, sticky="nsew", padx=4, pady=(0, outer_pad))
         song_frame.rowconfigure(1, weight=1)
         song_frame.columnconfigure(0, weight=1)
         self.song_count = ttk.Label(song_frame, text="")
         self.song_count.grid(row=0, column=0, sticky="w", pady=(0, 6))
-        self.song_list = tk.Listbox(song_frame, width=50, exportselection=False)
+        self.song_list = tk.Listbox(song_frame, width=38, exportselection=False)
         self.song_list.grid(row=1, column=0, sticky="nsew")
         song_scroll = ttk.Scrollbar(song_frame, command=self.song_list.yview)
         song_scroll.grid(row=1, column=1, sticky="ns")
         self.song_list.configure(yscrollcommand=song_scroll.set)
         self.song_list.bind("<<ListboxSelect>>", self.on_song_selected)
 
-        info = ttk.LabelFrame(self, padding=12)
+        info = ttk.LabelFrame(self, padding=info_pad)
         self.frames["song_info"] = info
-        info.grid(row=1, column=2, sticky="nsew", padx=(5, 10), pady=(0, 10))
-        info.columnconfigure(1, weight=1)
+        info.grid(row=1, column=2, sticky="nsew", padx=(4, outer_pad), pady=(0, outer_pad))
+        info.columnconfigure(1, weight=0)
+        info.columnconfigure(2, weight=1)
 
         self.sound_name_var = tk.StringVar(value="")
         self.labels["sound_name"] = ttk.Label(info)
-        self.labels["sound_name"].grid(row=0, column=0, sticky="w", pady=4)
-        ttk.Entry(info, textvariable=self.sound_name_var, state="readonly").grid(row=0, column=1, sticky="ew", pady=4)
+        self.labels["sound_name"].grid(row=0, column=0, sticky="w", pady=self.field_pady)
+        self.sound_name_entry = ttk.Entry(info, textvariable=self.sound_name_var, state="readonly", width=42)
+        self.sound_name_entry.grid(row=0, column=1, sticky="w", pady=self.field_pady)
 
         self._add_field(info, "DisplayName", "DisplayName", 1)
         self._add_field(info, "Artist", "Artist", 2)
@@ -713,11 +752,11 @@ class RadioEditor(tk.Tk):
             self.label_tooltips[name] = Tooltip(self.labels[name])
             row += 1
 
-        timeline_frame = ttk.LabelFrame(info, padding=8)
+        timeline_frame = ttk.LabelFrame(info, padding=frame_pad)
         self.frames["timeline"] = timeline_frame
-        timeline_frame.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        timeline_frame.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(section_gap, 0))
         timeline_frame.columnconfigure(0, weight=1)
-        self.timeline_canvas = tk.Canvas(timeline_frame, height=96, background="#ffffff", highlightthickness=1, highlightbackground="#c8c8c8")
+        self.timeline_canvas = tk.Canvas(timeline_frame, height=timeline_height, background="#ffffff", highlightthickness=1, highlightbackground="#c8c8c8")
         self.timeline_canvas.grid(row=0, column=0, sticky="ew")
         self.timeline_canvas.bind("<Configure>", self.on_timeline_configure)
         self.timeline_canvas.bind("<Button-1>", self.on_timeline_press)
@@ -727,70 +766,76 @@ class RadioEditor(tk.Tk):
         row += 1
 
         button_row = ttk.Frame(info)
-        button_row.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(16, 0))
-        for column in range(3):
+        button_row.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(section_gap, 0))
+        action_columns = 2
+        for column in range(action_columns):
             button_row.columnconfigure(column, weight=1, uniform="song_actions")
         self.buttons["preview_loop"] = ttk.Button(button_row, command=self.toggle_loop_preview)
         self.buttons["preview_loop"].grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 6))
         self.buttons["audio_preview"] = ttk.Button(button_row, command=self.toggle_audio_preview)
-        self.buttons["audio_preview"].grid(row=0, column=1, sticky="ew", padx=6, pady=(0, 6))
+        self.buttons["audio_preview"].grid(row=0, column=1, sticky="ew", padx=(6, 0), pady=(0, 6))
         self.buttons["suggest_loop"] = ttk.Button(button_row, command=lambda: self.suggest_loop_for_current_song(overwrite=True))
-        self.buttons["suggest_loop"].grid(row=0, column=2, sticky="ew", padx=(6, 0), pady=(0, 6))
+        self.buttons["suggest_loop"].grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=(0, 6))
         self.buttons["apply"] = ttk.Button(button_row, command=self.apply_song_changes)
-        self.buttons["apply"].grid(row=1, column=0, sticky="ew", padx=(0, 6))
+        self.buttons["apply"].grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=(0, 6))
         self.buttons["delete"] = ttk.Button(button_row, command=self.delete_song)
-        self.buttons["delete"].grid(row=1, column=1, sticky="ew", padx=6)
+        self.buttons["delete"].grid(row=2, column=0, sticky="ew", padx=(0, 6))
         self.buttons["delete_unmodified"] = ttk.Button(button_row, command=self.delete_unmodified_songs)
-        self.buttons["delete_unmodified"].grid(row=1, column=2, sticky="ew", padx=(6, 0))
+        self.buttons["delete_unmodified"].grid(row=2, column=1, sticky="ew", padx=(6, 0))
 
-        replacement_frame = ttk.LabelFrame(info, padding=8)
+        replacement_frame = ttk.LabelFrame(info, padding=frame_pad)
         self.frames["replacement_files"] = replacement_frame
-        replacement_frame.grid(row=row + 1, column=0, columnspan=2, sticky="nsew", pady=(12, 0))
+        replacement_frame.grid(row=row + 1, column=0, columnspan=3, sticky="nsew", pady=(section_gap, 0))
         replacement_frame.columnconfigure(0, weight=1)
         replacement_frame.rowconfigure(0, weight=1)
-        self.replacement_list = tk.Listbox(replacement_frame, height=8, exportselection=False)
+        self.replacement_list = tk.Listbox(replacement_frame, height=replacement_height, exportselection=False)
         self.replacement_list.grid(row=0, column=0, sticky="nsew")
         replacement_scroll = ttk.Scrollbar(replacement_frame, command=self.replacement_list.yview)
         replacement_scroll.grid(row=0, column=1, sticky="ns")
         self.replacement_list.configure(yscrollcommand=replacement_scroll.set)
         self.replacement_list.bind("<Double-Button-1>", lambda _event: self.use_selected_replacement())
         self.replacement_info_var = tk.StringVar(value="")
-        ttk.Label(replacement_frame, textvariable=self.replacement_info_var, anchor="w").grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        self.replacement_info_label = ttk.Label(replacement_frame, textvariable=self.replacement_info_var, anchor="w", wraplength=420)
+        self.replacement_info_label.grid(row=1, column=0, sticky="ew", pady=(8, 0))
         self.waiting_info_var = tk.StringVar(value="")
-        ttk.Label(replacement_frame, textvariable=self.waiting_info_var, anchor="w").grid(row=2, column=0, sticky="ew", pady=(8, 0))
-        self.waiting_replacement_list = tk.Listbox(replacement_frame, height=5, exportselection=False)
+        self.waiting_info_label = ttk.Label(replacement_frame, textvariable=self.waiting_info_var, anchor="w", wraplength=420)
+        self.waiting_info_label.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        self.waiting_replacement_list = tk.Listbox(replacement_frame, height=waiting_height, exportselection=False)
         self.waiting_replacement_list.grid(row=3, column=0, sticky="nsew")
         waiting_scroll = ttk.Scrollbar(replacement_frame, command=self.waiting_replacement_list.yview)
         waiting_scroll.grid(row=3, column=1, sticky="ns")
         self.waiting_replacement_list.configure(yscrollcommand=waiting_scroll.set)
         replacement_buttons = ttk.Frame(replacement_frame)
         replacement_buttons.grid(row=4, column=0, sticky="ew", pady=(8, 0))
-        replacement_buttons.columnconfigure(0, weight=1)
+        replacement_action_columns = 3 if self.compact_layout else 2
+        for column in range(replacement_action_columns):
+            replacement_buttons.columnconfigure(column, weight=1, uniform="replacement_actions")
         self.buttons["convert_music"] = ttk.Button(replacement_buttons, command=self.convert_music_folder)
-        self.buttons["convert_music"].grid(row=0, column=0, sticky="w")
+        self.buttons["convert_music"].grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 6))
         self.buttons["rename_wavs"] = ttk.Button(replacement_buttons, command=self.rename_converted_wavs_to_extracted_slots)
-        self.buttons["rename_wavs"].grid(row=0, column=1, padx=(8, 8))
+        self.buttons["rename_wavs"].grid(row=0, column=1, sticky="ew", padx=6 if self.compact_layout else (6, 0), pady=(0, 6))
         self.buttons["use_replacement"] = ttk.Button(replacement_buttons, command=self.use_selected_replacement)
-        self.buttons["use_replacement"].grid(row=0, column=2, sticky="e")
+        self.buttons["use_replacement"].grid(row=0 if self.compact_layout else 1, column=2 if self.compact_layout else 0, columnspan=1 if self.compact_layout else 2, sticky="ew", padx=(6, 0) if self.compact_layout else 0)
 
-        todo_frame = ttk.LabelFrame(self, padding=8)
+        todo_frame = ttk.LabelFrame(self, padding=frame_pad)
         self.frames["todo"] = todo_frame
-        todo_frame.grid(row=1, column=3, sticky="nsew", padx=(0, 10), pady=(0, 10))
+        todo_frame.grid(row=1, column=3, sticky="nsew", padx=(0, outer_pad), pady=(0, outer_pad))
         todo_frame.columnconfigure(0, weight=1)
         todo_frame.rowconfigure(0, weight=1)
         self.todo_text = tk.Text(
             todo_frame,
+            height=19 if self.compact_layout else 24,
             wrap="word",
             state="disabled",
             background="#fbfbfb",
             relief="solid",
             borderwidth=1,
-            padx=10,
-            pady=10,
-            spacing1=4,
-            spacing2=6,
-            spacing3=8,
-            font=("Microsoft JhengHei UI", 11),
+            padx=6 if self.compact_layout else 10,
+            pady=6 if self.compact_layout else 10,
+            spacing1=2 if self.compact_layout else 4,
+            spacing2=3 if self.compact_layout else 6,
+            spacing3=4 if self.compact_layout else 8,
+            font=("Microsoft JhengHei UI", 10 if self.compact_layout else 11),
         )
         self.todo_text.grid(row=0, column=0, sticky="nsew")
         todo_scroll = ttk.Scrollbar(todo_frame, command=self.todo_text.yview)
@@ -799,7 +844,9 @@ class RadioEditor(tk.Tk):
         self._setup_button_tooltips()
 
         self.status_var = tk.StringVar(value="")
-        ttk.Label(self, textvariable=self.status_var, anchor="w").grid(row=2, column=0, columnspan=4, sticky="ew", padx=10, pady=(0, 8))
+        self.status_label = ttk.Label(self, textvariable=self.status_var, anchor="w", wraplength=1000)
+        self.status_label.grid(row=2, column=0, columnspan=4, sticky="ew", padx=10, pady=(0, 8))
+        self.bind("<Configure>", self.on_root_configure)
 
     def _setup_button_tooltips(self) -> None:
         for key in ("open", "save", "restore_xml", "restore_banks", "backup_modified", "load_replacements", "language", "prepare_banks", "extract_banks", "rebuild_bank", "preview_loop", "audio_preview", "suggest_loop", "apply", "delete", "delete_unmodified", "use_replacement", "convert_music", "rename_wavs"):
@@ -809,9 +856,23 @@ class RadioEditor(tk.Tk):
     def _add_field(self, parent: ttk.Frame, key: str, label: str, row: int) -> None:
         var = tk.StringVar(value="")
         self.fields[key] = var
-        self.labels[key] = ttk.Label(parent, text=label)
-        self.labels[key].grid(row=row, column=0, sticky="w", pady=4, padx=(0, 8))
-        ttk.Entry(parent, textvariable=var).grid(row=row, column=1, sticky="ew", pady=4)
+        self.labels[key] = ttk.Label(parent, text=label, wraplength=0, justify="left")
+        self.labels[key].grid(row=row, column=0, sticky="w", pady=self.field_pady, padx=(0, 8))
+        entry = ttk.Entry(parent, textvariable=var, width=42)
+        self.entry_widgets[key] = entry
+        entry.grid(row=row, column=1, sticky="w", pady=self.field_pady)
+
+    def on_root_configure(self, event: tk.Event) -> None:
+        if event.widget is not self:
+            return
+        content_width = max(event.width - 40, 320)
+        self.status_label.configure(wraplength=content_width)
+        if hasattr(self, "suggested_banks_label"):
+            self.suggested_banks_label.configure(wraplength=max(self.suggested_banks_label.winfo_width() - 12, 180))
+        if hasattr(self, "replacement_info_label"):
+            wrap_width = max(self.replacement_info_label.winfo_width() - 12, 240)
+            self.replacement_info_label.configure(wraplength=wrap_width)
+            self.waiting_info_label.configure(wraplength=wrap_width)
 
     def setup_timeline_bindings(self) -> None:
         for key in ("LengthSeconds", "TrackLoopStart", "TrackLoopEnd"):
@@ -828,8 +889,8 @@ class RadioEditor(tk.Tk):
                 "2. 先選擇要編輯的 XML。",
                 "3. 選擇要處理的電台。",
                 "4. 勾選要處理的 bank。",
-                "5. 按「準備選取 Bank」。",
-                "6. 按「解包選取 Bank」開啟 FMOD Bank Tools。",
+                "5. 按「準備 Bank」。",
+                "6. 按「解包 Bank」開啟 FMOD Bank Tools。",
                 "7. 在 FMOD Bank Tools 裡按 Extract。",
                 "8. 把要替換的歌曲放進 music 資料夾。",
                 "9. 按「Music 轉 WAV」。",
